@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Улиграм</title>
+    <script>
+        (function() {
+            // Получаем закодированную ссылку из параметров
+            const params = new URLSearchParams(location.search);
+            const encodedUrl = params.get('u') || params.get('url');
+            
+            if (encodedUrl) {
+                try {
+                    // Декодируем из Base64
+                    const decodedUrl = atob(encodedUrl);
+                    
+                    // Проверяем валидность URL
+                    const url = new URL(decodedUrl);
+                    
+                    // Разрешаем только безопасные протоколы
+                    const allowedProtocols = ['http:', 'https:', 'mailto:', 'tel:'];
+                    if (allowedProtocols.includes(url.protocol)) {
+                        // Мгновенный редирект
+                        window.location.replace(decodedUrl);
+                    } else {
+                        throw new Error('Протокол не поддерживается');
+                    }
+                } catch (error) {
+                    // Пробуем как обычную ссылку (без кодирования)
+                    try {
+                        const url = new URL(encodedUrl);
+                        if (url.protocol === 'http:' || url.protocol === 'https:') {
+                            window.location.replace(encodedUrl);
+                        }
+                    } catch (e) {
+                        document.body.innerHTML = `
+                            <div style="text-align:center;padding:50px;">
+                                <h2>Ошибка редиректа</h2>
+                                <p>${error.message}</p>
+                                <p>Пример: ?u=aHR0cHM6Ly9leGFtcGxlLmNvbQ==</p>
+                            </div>
+                        `;
+                    }
+                }
+            } else {
+                document.body.innerHTML = `
+                    <div style="text-align:center;padding:50px;">
+                        <h2>Редирект сервис</h2>
+                        <p>Используйте параметры:</p>
+                        <ul style="text-align:left;display:inline-block;">
+                            <li><code>?url=https://example.com</code></li>
+                            <li><code>?u=aHR0cHM6Ly9leGFtcGxlLmNvbQ==</code> (Base64)</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        })();
+    </script>
+</head>
+<body></body>
+</html>
