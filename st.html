@@ -37,7 +37,6 @@
             color: #f0f7da;
         }
 
-        /* декоративные улитки (фон) */
         body::before {
             content: "🐌🐌🐌";
             font-size: 8rem;
@@ -589,54 +588,22 @@
         const db = firebase.firestore();
 
         // ============================================================
-        //  ПАРСЕР MARKDOWN → HTML (с поддержкой изображений)
+        //  ПАРСЕР MARKDOWN → HTML (САМЫЙ ПРОСТОЙ И НАДЁЖНЫЙ)
         // ============================================================
         function markdownToHtml(md) {
             if (!md) return '';
 
             let html = md;
 
-            // 1. Блоки кода ``` ... ```
-            html = html.replace(/```([\s\S]*?)```/g, function(match, code) {
-                const escaped = code
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
-                return `<pre><code class="language-plaintext">${escaped}</code></pre>`;
-            });
-
-            // 2. Инлайн-код `...`
-            html = html.replace(/`([^`]+)`/g, function(match, code) {
-                const escaped = code
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
-                return `<code>${escaped}</code>`;
-            });
-
-            // 3. Заголовки
-            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-            html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-            html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-
-            // 4. Жирный / курсив
-            html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-            // 5. Зачёркивание
-            html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
-
-            // 6. Ссылки [текст](url)
-            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-
-            // 7. Изображения ![](url) — ОСНОВНОЕ: показываем картинки прямо в статье
+            // === СНАЧАЛА ОБРАБАТЫВАЕМ ИЗОБРАЖЕНИЯ (самое важное!) ===
+            // Ищем ![...](...) и заменяем на <img>
+            // Используем глобальный поиск по всему тексту
             html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, url) {
                 // Определяем тип файла по расширению
                 const ext = url.split('.').pop().toLowerCase();
                 const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext);
                 const isAudio = ['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext);
-                const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext);
+                const isVideo = ['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext);
 
                 if (isImage) {
                     return `<img src="${url}" alt="${alt || ''}" loading="lazy" />`;
@@ -645,29 +612,100 @@
                 } else if (isVideo) {
                     return `<video controls><source src="${url}" /></video>`;
                 } else {
-                    // Если неизвестный тип — показываем как ссылку
                     return `<a href="${url}" target="_blank" rel="noopener">${alt || url}</a>`;
                 }
             });
 
-            // 8. Цитаты
+            // === ССЫЛКИ [текст](url) ===
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+            // === ЖИРНЫЙ И КУРСИВ ===
+            html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+            // === ЗАЧЁРКИВАНИЕ ===
+            html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+            // === КОД (инлайн) ===
+            html = html.replace(/`([^`]+)`/g, function(match, code) {
+                return '<code>' + code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code>';
+            });
+
+            // === БЛОКИ КОДА ===
+            html = html.replace(/```([\s\S]*?)```/g, function(match, code) {
+                const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<pre><code class="language-plaintext">' + escaped + '</code></pre>';
+            });
+
+            // === ЗАГОЛОВКИ ===
+            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+            html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+            html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+            // === ЦИТАТЫ ===
             html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
 
-            // 9. Списки
+            // === СПИСКИ ===
             html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
             html = html.replace(/^\+ (.*$)/gim, '<li>$1</li>');
             html = html.replace(/(<li>.*<\/li>)/gim, function(match) {
-                return `<ul>${match}</ul>`;
+                return '<ul>' + match + '</ul>';
             });
 
-            // 10. Горизонтальная линия
+            // === ГОРИЗОНТАЛЬНАЯ ЛИНИЯ ===
             html = html.replace(/^---$/gim, '<hr />');
 
-            // 11. Абзацы
-            html = html.replace(/\n\s*\n/g, '</p><p>');
-            html = '<p>' + html + '</p>';
+            // === АБЗАЦЫ ===
+            // Разбиваем на строки и обрабатываем
+            let lines = html.split('\n');
+            let result = [];
+            let inList = false;
 
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+
+                // Пропускаем пустые строки
+                if (line === '') {
+                    continue;
+                }
+
+                // Если это тег списка — не оборачиваем в <p>
+                if (line.startsWith('<li>') || line.startsWith('</li>') || 
+                    line.startsWith('<ul>') || line.startsWith('</ul>')) {
+                    result.push(line);
+                    continue;
+                }
+
+                // Если это уже блок кода — не трогаем
+                if (line.startsWith('<pre>') || line.startsWith('</pre>') ||
+                    line.startsWith('<code') || line.startsWith('</code')) {
+                    result.push(line);
+                    continue;
+                }
+
+                // Если это заголовок или цитата — не трогаем
+                if (line.startsWith('<h') || line.startsWith('</h') ||
+                    line.startsWith('<blockquote>') || line.startsWith('</blockquote>') ||
+                    line.startsWith('<hr')) {
+                    result.push(line);
+                    continue;
+                }
+
+                // Если строка не пустая и не содержит теги — оборачиваем в <p>
+                if (!line.match(/^<[a-z]/)) {
+                    result.push('<p>' + line + '</p>');
+                } else {
+                    result.push(line);
+                }
+            }
+
+            html = result.join('\n');
+
+            // Убираем лишние пустые <p></p>
             html = html.replace(/<p>\s*<\/p>/g, '');
+
+            // Чиним вложенные списки
             html = html.replace(/<ul><ul>/g, '<ul>');
             html = html.replace(/<\/ul><\/ul>/g, '</ul>');
             html = html.replace(/<li><ul>/g, '<li><ul>');
@@ -680,7 +718,9 @@
         // ============================================================
         function truncateText(text, maxLength = 120) {
             if (!text) return '';
-            const plain = text.replace(/[#*`>\[\]()!-]/g, '').trim();
+            // Убираем Markdown-символы, но сохраняем картинки
+            let plain = text.replace(/[#*`>\[\]()!\-+]/g, '').trim();
+            // Если есть ссылка на картинку, показываем её
             if (plain.length <= maxLength) return plain;
             return plain.substring(0, maxLength) + '...';
         }
@@ -775,7 +815,6 @@
                 filesHtml += '</div>';
             }
 
-            // Обновляем заголовок страницы
             document.title = `SnailTail · ${title}`;
 
             container.innerHTML = `
@@ -794,7 +833,6 @@
                         </div>
                     `;
 
-            // Подсветка кода
             if (typeof hljs !== 'undefined') {
                 document.querySelectorAll('pre code').forEach(el => {
                     hljs.highlightElement(el);
@@ -803,21 +841,20 @@
         }
 
         // ============================================================
-        //  ОТКРЫТИЕ СТАТЬИ (переход на отдельную страницу)
+        //  ОТКРЫТИЕ СТАТЬИ
         // ============================================================
         function openArticle(id) {
             window.location.href = `https://uliigra2.c6t.ru/st?id=${id}`;
         }
 
         // ============================================================
-        //  ЗАГРУЗКА ДАННЫХ ИЗ FIRESTORE
+        //  ЗАГРУЗКА ДАННЫХ
         // ============================================================
         function loadArticles() {
             const container = document.getElementById('contentContainer');
             const params = new URLSearchParams(window.location.search);
             const articleId = params.get('id');
 
-            // Если есть ID — грузим одну статью
             if (articleId) {
                 container.innerHTML = `
                             <div class="loading-message">
@@ -863,7 +900,6 @@
                 return;
             }
 
-            // Иначе — список всех статей
             container.innerHTML = `
                         <div class="loading-message">
                             <span style="font-size:2rem;">🐌</span> загрузка статей...
