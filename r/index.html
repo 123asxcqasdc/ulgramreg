@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ули · перенаправление</title>
+    
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="stylesheet" href="/shared.css">
+    
+    <style>
+        .main-container {
+            max-width: 550px;
+            text-align: center;
+        }
+
+        .header-title {
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            letter-spacing: normal;
+        }
+
+        .snail-loader {
+            font-size: 4rem;
+            margin: 1.5rem 0;
+            animation: snailWalk 1.5s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes snailWalk {
+            0% { transform: translateX(-20px) rotate(0deg); }
+            50% { transform: translateX(20px) rotate(10deg); }
+            100% { transform: translateX(-20px) rotate(0deg); }
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            margin: 1rem auto;
+            border: 5px solid #5a825a;
+            border-top: 5px solid #c7f0b1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .code-badge {
+            background: #2f542f;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            display: inline-block;
+            margin: 1rem 0;
+            font-weight: bold;
+            color: #c7e3aa;
+            border: 2px solid #7eaf7a;
+        }
+
+        .status-text {
+            margin: 1rem 0;
+            color: #dcedc4;
+        }
+
+        .url-info {
+            background: #2e4d2e;
+            padding: 1rem;
+            border-radius: 20px;
+            margin: 1.5rem 0;
+            word-break: break-all;
+            border: 2px solid #7eaf7a;
+            font-size: 0.9rem;
+        }
+
+        .error-box {
+            background: #4c3d2e;
+            border: 4px dotted #b1c97b;
+            border-radius: 30px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            color: #ffefc0;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background: #a3c4a3;
+            color: #1b3f1b;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            margin-top: 1rem;
+            transition: 0.2s;
+            box-shadow: 0 5px 0 #446d44;
+        }
+
+        .button:hover {
+            background: #c3e6b3;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #2f542f;
+        }
+
+        .footer-snails {
+            margin-top: 2rem;
+            font-size: 1.2rem;
+            padding-top: 1.5rem;
+        }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header-title">
+        <span>🐌</span>
+        <span>ПЕРЕНАПРАВЛЕНИЕ</span>
+        <span>🐌</span>
+    </div>
+
+    <div class="code-badge" id="codeDisplay">загрузка...</div>
+    
+    <div class="loader"></div>
+    <div class="snail-loader">🐌</div>
+    <div class="status-text" id="statusText">поиск ссылки...</div>
+
+    <div id="urlInfo" class="url-info" style="display: none;"></div>
+    <div id="errorBox" class="error-box" style="display: none;"></div>
+
+    <a href="https://uliigra2.c6t.ru/lnk" class="button" id="backButton" style="display: none;">создать новую ссылку</a>
+
+    <div class="footer-snails">
+        <span>🐌</span><span>🐌💚</span><span>🐌</span><span>🐚</span>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDTx2Y9ctiWp26YeMmAHAxDZd_gVI_ZMdw",
+        authDomain: "kcalls.firebaseapp.com",
+        databaseURL: "https://kcalls-default-rtdb.firebaseio.com",
+        projectId: "kcalls",
+        storageBucket: "kcalls.firebasestorage.app",
+        messagingSenderId: "990117089104",
+        appId: "1:990117089104:web:278a42c037e975ebb76655",
+        measurementId: "G-TK6GVEX9G5"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    function getShortCode() {
+        const url = window.location.href;
+        const questionMarkIndex = url.indexOf('?');
+        if (questionMarkIndex !== -1) {
+            return url.substring(questionMarkIndex + 1);
+        }
+        return null;
+    }
+
+    function safeHttpUrl(raw) {
+        if (typeof raw !== 'string' || !raw.trim()) return null;
+        try {
+            const u = new URL(raw, window.location.origin);
+            if (u.protocol === 'http:' || u.protocol === 'https:') {
+                return u.href;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    async function redirectToUrl() {
+        const shortCode = getShortCode();
+        const codeDisplay = document.getElementById('codeDisplay');
+        const statusText = document.getElementById('statusText');
+        const urlInfo = document.getElementById('urlInfo');
+        const errorBox = document.getElementById('errorBox');
+        const backButton = document.getElementById('backButton');
+        const loader = document.querySelector('.loader');
+        const snailLoader = document.querySelector('.snail-loader');
+
+        if (shortCode) {
+            codeDisplay.textContent = 'код: ' + shortCode;
+        } else {
+            codeDisplay.textContent = 'код не указан';
+        }
+
+        if (!shortCode) {
+            loader.style.display = 'none';
+            snailLoader.style.display = 'none';
+            statusText.textContent = 'ошибка';
+            errorBox.style.display = 'block';
+            errorBox.innerHTML = '<strong>код ссылки не указан</strong><br>используйте формат: /r?код';
+            backButton.style.display = 'inline-block';
+            return;
+        }
+
+        try {
+            const snapshot = await database.ref('links/' + shortCode).once('value');
+            const linkData = snapshot.val();
+
+            if (linkData && linkData.url) {
+                const target = safeHttpUrl(linkData.url);
+
+                await database.ref('links/' + shortCode).update({
+                    clicks: (linkData.clicks || 0) + 1,
+                    lastAccessed: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                if (target) {
+                    statusText.textContent = 'перенаправление...';
+                    urlInfo.style.display = 'block';
+                    urlInfo.textContent = 'переход на: ' + linkData.url;
+
+                    setTimeout(() => {
+                        window.location.href = target;
+                    }, 1500);
+                } else {
+                    loader.style.display = 'none';
+                    snailLoader.style.display = 'none';
+                    statusText.textContent = 'ссылка заблокирована';
+                    errorBox.style.display = 'block';
+                    errorBox.innerHTML = '<strong>небезопасная ссылка</strong><br>разрешены только http:// и https:// ссылки';
+                    backButton.style.display = 'inline-block';
+                }
+            } else {
+                loader.style.display = 'none';
+                snailLoader.style.display = 'none';
+                statusText.textContent = 'ссылка не найдена';
+                errorBox.style.display = 'block';
+                errorBox.innerHTML = '<strong>ссылка не найдена</strong><br>возможно, она была удалена';
+                backButton.style.display = 'inline-block';
+            }
+        } catch (error) {
+            console.error(error);
+            loader.style.display = 'none';
+            snailLoader.style.display = 'none';
+            statusText.textContent = 'ошибка';
+            errorBox.style.display = 'block';
+            errorBox.innerHTML = '<strong>ошибка сервера</strong><br>попробуйте позже';
+            backButton.style.display = 'inline-block';
+        }
+    }
+
+    window.onload = redirectToUrl;
+</script>
+</body>
+</html>
