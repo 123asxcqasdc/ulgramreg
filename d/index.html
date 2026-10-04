@@ -241,6 +241,15 @@
         errorBox.innerHTML = html;
     }
 
+    function tryClosePage() {
+        try {
+            window.open('', '_self');
+            window.close();
+        } catch (e) {
+            window.location.replace('about:blank');
+        }
+    }
+
     function startDownload(fileData, chunks) {
         const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
         const fullFile = new Uint8Array(totalLength);
@@ -279,6 +288,9 @@
         a.click();
         a.remove();
         autoDownloaded = true;
+
+        statusText.textContent = '✅ загрузка началась! страница закрывается...';
+        setTimeout(tryClosePage, 2000);
     }
 
     async function downloadByCode(code) {
