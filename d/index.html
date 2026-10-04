@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ули · быстрая загрузка</title>
+    
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="stylesheet" href="/shared.css">
+    
+    <style>
+        .main-container {
+            max-width: 620px;
+            text-align: center;
+        }
+
+        .header-title {
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            letter-spacing: normal;
+        }
+
+        .code-badge {
+            background: #2f542f;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            display: inline-block;
+            margin: 1rem 0;
+            font-weight: bold;
+            color: #c7e3aa;
+            border: 2px solid #7eaf7a;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            margin: 1rem auto;
+            border: 5px solid #5a825a;
+            border-top: 5px solid #c7f0b1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .snail-loader {
+            font-size: 3.5rem;
+            margin: 1rem 0;
+            display: inline-block;
+            animation: snailWalk 1.5s ease-in-out infinite;
+        }
+
+        @keyframes snailWalk {
+            0% { transform: translateX(-20px) rotate(0deg); }
+            50% { transform: translateX(20px) rotate(10deg); }
+            100% { transform: translateX(-20px) rotate(0deg); }
+        }
+
+        .status-text {
+            margin: 1rem 0;
+            color: #dcedc4;
+            word-break: break-word;
+        }
+
+        .file-info {
+            background: #2e4d2e;
+            padding: 1rem;
+            border-radius: 20px;
+            margin: 1.5rem 0;
+            border: 2px solid #7eaf7a;
+        }
+
+        .file-icon {
+            font-size: 4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #fcfad6;
+            margin-bottom: 0.3rem;
+            word-break: break-all;
+        }
+
+        .file-meta {
+            color: #a0bf90;
+            margin-bottom: 0.8rem;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background: #a3c4a3;
+            color: #1b3f1b;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            margin-top: 0.5rem;
+            transition: 0.2s;
+            box-shadow: 0 5px 0 #446d44;
+        }
+
+        .button:hover {
+            background: #c3e6b3;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #2f542f;
+        }
+
+        .error-box {
+            background: #4c3d2e;
+            border: 4px dotted #b1c97b;
+            border-radius: 30px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            color: #ffefc0;
+        }
+
+        .error-box .big-snail {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-note {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: #8aaa7a;
+        }
+
+        .footer-note a {
+            color: #c7e0b0;
+        }
+
+        .footer-snails {
+            margin-top: 2rem;
+            font-size: 1.2rem;
+            padding-top: 1.5rem;
+        }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header-title">
+        <span>🐌</span>
+        <span>БЫСТРАЯ ЗАГРУЗКА</span>
+        <span>🐌</span>
+    </div>
+
+    <div class="code-badge" id="codeDisplay">загрузка...</div>
+    
+    <div class="loader" id="loader"></div>
+    <div class="snail-loader">🐌</div>
+    <div class="status-text" id="statusText">поиск файла...</div>
+
+    <div id="fileInfo" class="file-info" style="display: none;"></div>
+    <div id="errorBox" class="error-box" style="display: none;"></div>
+
+    <div class="footer-note">файлообменник ули 🐌 <a href="https://uliigra2.c6t.ru/sst">uliigra2.c6t.ru/sst</a></div>
+
+    <div class="footer-snails">
+        <span>🐌</span><span>🐌💚</span><span>🐌</span><span>🐚</span>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCWQ3cuVf3J18WHoIncw5EarAhCnhZWB6E",
+        authDomain: "sstore-a5e9a.firebaseapp.com",
+        projectId: "sstore-a5e9a",
+        storageBucket: "sstore-a5e9a.firebasestorage.app",
+        messagingSenderId: "810731138634",
+        appId: "1:810731138634:web:f9fccc44b9a3f6956640b3",
+        measurementId: "G-H4L4QQD1T9"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true });
+
+    const loader = document.getElementById('loader');
+    const snailLoader = document.querySelector('.snail-loader');
+    const statusText = document.getElementById('statusText');
+    const fileInfo = document.getElementById('fileInfo');
+    const errorBox = document.getElementById('errorBox');
+    const codeDisplay = document.getElementById('codeDisplay');
+
+    let autoDownloaded = false;
+    let lastBlobUrl = null;
+
+    function getCode() {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        return code ? code.trim().toUpperCase() : '';
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function formatSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function getFileIcon(filename) {
+        const ext = filename.split('.').pop()?.toLowerCase() || '';
+        const icons = {
+            'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📃',
+            'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'webp': '🖼️',
+            'mp4': '🎬', 'avi': '🎬', 'mov': '🎬', 'mkv': '🎬',
+            'mp3': '🎵', 'wav': '🎵', 'flac': '🎵',
+            'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+            'exe': '⚙️', 'msi': '⚙️', 'apk': '📱', 'iso': '💿',
+            'json': '📊', 'xml': '📊', 'csv': '📊',
+            'py': '🐍', 'js': '📜', 'html': '🌐', 'css': '🎨', 'java': '☕',
+            'sb3': '🎮', 'sb2': '🎮'
+        };
+        return icons[ext] || '📎';
+    }
+
+    function base64ToUint8Array(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+    }
+
+    function showError(html) {
+        loader.style.display = 'none';
+        snailLoader.style.display = 'none';
+        statusText.textContent = 'файл не скачан';
+        errorBox.style.display = 'block';
+        errorBox.innerHTML = html;
+    }
+
+    function startDownload(fileData, chunks) {
+        const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+        const fullFile = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+            fullFile.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        const blob = new Blob([fullFile], { type: fileData.mimeType || 'application/octet-stream' });
+        if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+        lastBlobUrl = URL.createObjectURL(blob);
+        const name = fileData.name || 'файл';
+        const size = fileData.size || totalLength;
+        const icon = getFileIcon(name);
+        const uploadedAt = fileData.uploadedAt?.toDate?.() || new Date();
+        const dateStr = uploadedAt.toLocaleDateString('ru-RU') + ' ' +
+            uploadedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+        loader.style.display = 'none';
+        snailLoader.style.display = 'none';
+        statusText.textContent = 'файл найден! загрузка начинается...';
+
+        fileInfo.style.display = 'block';
+        fileInfo.innerHTML = `
+            <div class="file-icon">${icon}</div>
+            <div class="file-name">${name}</div>
+            <div class="file-meta">${formatSize(size)} · ${dateStr}</div>
+            <a href="${lastBlobUrl}" download="${name}" class="button">⬇️ скачать файл</a>
+        `;
+
+        const a = document.createElement('a');
+        a.href = lastBlobUrl;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        autoDownloaded = true;
+    }
+
+    async function downloadByCode(code) {
+        try {
+            const fileSnapshot = await db.collection('files')
+                .where('code', '==', code)
+                .limit(1)
+                .get();
+
+            if (fileSnapshot.empty) {
+                showError(`<span class="big-snail">🐌❓</span><strong>файл с кодом «${code}» не найден</strong><br>проверьте ссылку или попросите ссылку заново`);
+                return;
+            }
+
+            const fileDoc = fileSnapshot.docs[0];
+            const fileData = fileDoc.data();
+            const totalChunks = fileData.totalChunks || 0;
+            const name = fileData.name || 'файл';
+
+            if (totalChunks === 0) {
+                throw new Error('Файл поврежден');
+            }
+
+            statusText.textContent = `загружаем куски ${name} (0/${totalChunks})...`;
+
+            const chunks = new Array(totalChunks).fill(null);
+            const BATCH = 10;
+            let loaded = 0;
+
+            for (let start = 0; start < totalChunks; start += BATCH) {
+                const end = Math.min(start + BATCH, totalChunks);
+                const tasks = [];
+                for (let i = start; i < end; i++) {
+                    tasks.push(
+                        db.collection('file_chunks')
+                            .where('fileCode', '==', code)
+                            .where('chunkIndex', '==', i)
+                            .limit(1)
+                            .get()
+                            .then(snapshot => {
+                                if (snapshot.empty) {
+                                    throw new Error(`кусок ${i + 1}/${totalChunks} не найден`);
+                                }
+                                chunks[i] = base64ToUint8Array(snapshot.docs[0].data().data);
+                            })
+                    );
+                }
+                await Promise.all(tasks);
+                loaded += tasks.length;
+                statusText.textContent = `загружаем куски ${name} (${loaded}/${totalChunks})...`;
+                await sleep(20);
+            }
+
+            startDownload(fileData, chunks);
+        } catch (error) {
+            console.error('Download error:', error);
+            showError(`<span class="big-snail">🐌🍂</span><strong>ошибка загрузки</strong><br>${error.message || 'попробуйте позже'}`);
+        }
+    }
+
+    function init() {
+        const code = getCode();
+        if (code) {
+            codeDisplay.textContent = 'код: ' + code;
+        } else {
+            codeDisplay.textContent = 'код не указан';
+        }
+
+        if (!code) {
+            showError(`<span class="big-snail">🐌🤔</span><strong>код файла не указан</strong><br>используйте формат: /d?code=КОД`);
+            return;
+        }
+
+        downloadByCode(code);
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
